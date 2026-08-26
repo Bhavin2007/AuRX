@@ -5,16 +5,43 @@ const { isRelevant, calculateRelevance } = require('./relevanceFilter');
 const { extractArticle } = require('./articleExtractor');
 
 const API_KEY = process.env.GNEWS_API_KEY;
-const PREDICTOR_URL = (process.env.PREDICTOR_URL || 'http://localhost:8000').replace(/\/$/, '');
-const BACKEND_URL = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
-const TICKER = (process.env.TICKER || 'GOLD').trim().toUpperCase();
-const MAX_ARTICLES = Math.min(Math.max(Number(process.env.GNEWS_MAX_ARTICLES || 10), 1), 100);
-const HTTP_TIMEOUT = Number(process.env.HTTP_TIMEOUT_MS || 30000);
 
-const http = axios.create({ timeout: HTTP_TIMEOUT });
+const PREDICTOR_URL = (
+    process.env.PREDICTOR_URL ||
+    'http://localhost:8000'
+).replace(/\/$/, '');
+
+const BACKEND_URL = (
+    process.env.BACKEND_URL ||
+    'http://localhost:3000'
+).replace(/\/$/, '');
+
+const TICKER = (
+    process.env.TICKER ||
+    'GOLD'
+).trim().toUpperCase();
+
+const MAX_ARTICLES = Math.min(
+    Math.max(
+        Number(process.env.GNEWS_MAX_ARTICLES || 10),
+        1
+    ),
+    100
+);
+
+const HTTP_TIMEOUT = Number(
+    process.env.HTTP_TIMEOUT_MS || 30000
+);
+
+const http = axios.create({
+    timeout: HTTP_TIMEOUT
+});
+
 
 function determineSourceTier(sourceName) {
+
     if (!sourceName) return 'unknown';
+
     const name = sourceName.toLowerCase();
 
     if (
@@ -23,7 +50,9 @@ function determineSourceTier(sourceName) {
         name.includes('associated press') ||
         name === 'ap' ||
         name.includes('dow jones')
-    ) return 'news_wire';
+    ) {
+        return 'news_wire';
+    }
 
     if (
         name.includes('wall street journal') ||
@@ -31,7 +60,9 @@ function determineSourceTier(sourceName) {
         name.includes('financial times') ||
         name.includes('barron') ||
         name.includes('economist')
-    ) return 'tier_1_financial';
+    ) {
+        return 'tier_1_financial';
+    }
 
     if (
         name.includes('kitco') ||
@@ -40,7 +71,9 @@ function determineSourceTier(sourceName) {
         name.includes('goldprice') ||
         name.includes('bullionvault') ||
         name.includes('investing.com')
-    ) return 'commodity_specialist';
+    ) {
+        return 'commodity_specialist';
+    }
 
     if (
         name.includes('cnbc') ||
@@ -50,7 +83,9 @@ function determineSourceTier(sourceName) {
         name.includes('business insider') ||
         name.includes('seeking alpha') ||
         name.includes('benzinga')
-    ) return 'broad_financial';
+    ) {
+        return 'broad_financial';
+    }
 
     if (
         name.includes('cnn') ||
@@ -60,7 +95,9 @@ function determineSourceTier(sourceName) {
         name.includes('new york times') ||
         name.includes('washington post') ||
         name.includes('the guardian')
-    ) return 'mainstream_news';
+    ) {
+        return 'mainstream_news';
+    }
 
     if (
         name.includes('msn') ||
@@ -68,178 +105,361 @@ function determineSourceTier(sourceName) {
         name.includes('times of india') ||
         name.includes('ndtv') ||
         name.includes('news18')
-    ) return 'aggregator_regional';
+    ) {
+        return 'aggregator_regional';
+    }
 
     return 'unknown';
 }
 
+
 function buildQuery() {
+
     const queries = {
-        GOLD: '"gold price" OR "gold prices" OR "gold futures" OR "gold market"',
+
+        GOLD:
+            '"gold price" OR "gold prices" OR "gold futures" OR "gold market"',
+
     };
+
     return queries[TICKER] || `"${TICKER}"`;
 }
 
+
 function normalizeArticle(article) {
+
     return {
+
         title: article.title || '',
-        description: article.description || '',
-        content: article.content || '',
-        url: article.url || '',
-        source: article.source?.name || 'Unknown',
-        publishedAt: article.publishedAt || new Date().toISOString(),
+
+        description:
+            article.description || '',
+
+        content:
+            article.content || '',
+
+        url:
+            article.url || '',
+
+        source:
+            article.source?.name || 'Unknown',
+
+        publishedAt:
+            article.publishedAt ||
+            new Date().toISOString(),
+
     };
 }
 
+
 async function getGoldNews() {
+
     if (!API_KEY) {
-        throw new Error('GNEWS_API_KEY is not defined in news-scraper/.env');
+
+        throw new Error(
+            'GNEWS_API_KEY is not defined in news-scraper/.env'
+        );
+
     }
 
-    const response = await http.get('https://gnews.io/api/v4/search', {
-        params: {
-            q: buildQuery(),
-            lang: 'en',
-            country: 'us',
-            max: MAX_ARTICLES,
-            sortby: 'publishedAt',
-            apikey: API_KEY,
-        },
-    });
+    const response = await http.get(
+        'https://gnews.io/api/v4/search',
+        {
+            params: {
 
-    const articles = (response.data?.articles || []).map(normalizeArticle);
+                q: buildQuery(),
 
-    const filteredArticles = articles
-        .map(article => ({
-            ...article,
-            relevanceScore: calculateRelevance(article),
-        }))
-        .filter(isRelevant);
+                lang: 'en',
 
-    console.log(`Found ${articles.length} articles, ${filteredArticles.length} relevant.`);
+                country: 'us',
+
+                max: MAX_ARTICLES,
+
+                sortby: 'publishedAt',
+
+                apikey: API_KEY,
+
+            },
+        }
+    );
+
+
+    const articles =
+        (response.data?.articles || [])
+            .map(normalizeArticle);
+
+
+    /*
+     * IMPORTANT CHANGE:
+     *
+     * Extract the full article BEFORE calculating relevance.
+     *
+     * Old:
+     *
+     * GNews
+     *   ↓
+     * relevance
+     *   ↓
+     * extraction
+     *
+     * New:
+     *
+     * GNews
+     *   ↓
+     * extraction
+     *   ↓
+     * relevance using full text
+     */
+
+
+    const extractedArticles =
+        await Promise.all(
+
+            articles.map(
+                async article => {
+
+                    const fullText =
+                        await extractArticle(
+                            article.url
+                        );
+
+                    const hasFullText =
+                        Boolean(
+                            fullText &&
+                            fullText.length > 100
+                        );
+
+                    const content = (
+                        hasFullText
+                            ? fullText
+                            : (
+                                article.content ||
+                                article.description ||
+                                article.title
+                            )
+                    ).trim();
+
+                    return {
+
+                        ...article,
+
+                        content,
+
+                        fullText,
+
+                        hasFullText,
+
+                    };
+
+                }
+            )
+
+        );
+
+
+    /*
+     * Calculate relevance using
+     * the extracted article content.
+     */
+
+    const filteredArticles =
+        extractedArticles
+
+            .map(article => ({
+
+                ...article,
+
+                relevanceScore:
+                    calculateRelevance({
+
+                        title:
+                            article.title,
+
+                        description:
+                            article.description,
+
+                        content:
+                            article.content,
+
+                    }),
+
+            }))
+
+            .filter(article =>
+
+                isRelevant({
+
+                    title:
+                        article.title,
+
+                    description:
+                        article.description,
+
+                    content:
+                        article.content,
+
+                })
+
+            );
+
+
+    console.log(
+        `Found ${articles.length} articles, ${filteredArticles.length} relevant.`
+    );
+
 
     if (filteredArticles.length === 0) {
-        console.log('No relevant articles found. Nothing to send.');
+
+        console.log(
+            'No relevant articles found. Nothing to send.'
+        );
+
         return;
     }
 
-    const rawItems = await Promise.all(
-        filteredArticles.map(async article => {
-            const fullText = await extractArticle(article.url);
-            const hasFullText = Boolean(fullText && fullText.length > 100);
 
-            return {
-                title: article.title,
-                description: article.description,
+    /*
+     * Build the structure expected
+     * by the predictor.
+     *
+     * Existing structure is preserved.
+     */
 
-                text: (hasFullText
-                    ? fullText
-                    : (article.content || article.description || article.title)
-                ).trim(),
+    const rawItems =
+        filteredArticles.map(
+            article => ({
 
-                source_name: article.source,
-                source_url: article.url,
-                source_type: determineSourceTier(article.source),
+                text:
+                    article.content,
 
-                timestamp: article.publishedAt,
+                source_name:
+                    article.source,
 
-                ticker: TICKER,
+                source_url:
+                    article.url,
 
-                relevance_score: article.relevanceScore,
-                is_full_text: hasFullText,
-            };
-        })
-    );
+                source_type:
+                    determineSourceTier(
+                        article.source
+                    ),
 
-    const validItems = rawItems.filter(item => item.text.length > 0 && item.source_url);
+                timestamp:
+                    article.publishedAt,
+
+                ticker:
+                    TICKER,
+
+                relevance_score:
+                    article.relevanceScore,
+
+                is_full_text:
+                    article.hasFullText,
+
+            })
+        );
+
+
+    const validItems =
+        rawItems.filter(
+            item =>
+                item.text.length > 0 &&
+                item.source_url
+        );
+
 
     if (validItems.length === 0) {
-        console.log('Relevant articles contained no usable text/URLs. Nothing to send.');
+
+        console.log(
+            'Relevant articles contained no usable text/URLs. Nothing to send.'
+        );
+
         return;
     }
-    // this is added temporarily to see the news articles being sent for analysis to predictor
-    console.log('\n========== ARTICLES SENT TO PREDICTOR ==========');
 
-    validItems.forEach((item, index) => {
-    console.log(`\n[${index + 1}] ${item.source_name}`);
-    console.log(`Published: ${item.published_at}`);
-    console.log(`URL: ${item.source_url}`);
-    console.log(`Relevance: ${item.relevance_score}`);
-    console.log(`Full text: ${item.is_full_text}`);
-    console.log(`Text preview: ${item.text.substring(0, 300)}...`);
-});
 
-console.log('\n=================================================\n');
-//
-    console.log(`Sending ${validItems.length} items to predictor: ${PREDICTOR_URL}/api/analyze`);
-
-    const predictorResponse = await http.post(
-        `${PREDICTOR_URL}/api/analyze`,
-        validItems,
-        { timeout: Math.max(HTTP_TIMEOUT, 60000) }
+    console.log(
+        `Sending ${validItems.length} items to predictor: ${PREDICTOR_URL}/api/analyze`
     );
 
-    if (predictorResponse.data?.status !== 'success') {
-        throw new Error('Predictor returned an unsuccessful response.');
+
+    const predictorResponse =
+        await http.post(
+
+            `${PREDICTOR_URL}/api/analyze`,
+
+            validItems,
+
+            {
+                timeout:
+                    Math.max(
+                        HTTP_TIMEOUT,
+                        60000
+                    )
+            }
+
+        );
+
+
+    if (
+        predictorResponse.data?.status !==
+        'success'
+    ) {
+
+        throw new Error(
+            'Predictor returned an unsuccessful response.'
+        );
+
     }
 
-    console.log('Predictor analysis received.');
+
+    console.log(
+        'Momentum scores received.'
+    );
 
 
-// =====================================================
-// SAVE ARTICLE-LEVEL ANALYSIS
-// =====================================================
-
-console.log(
-    `Saving articles to backend: ${BACKEND_URL}/api/save-articles`
-);
-
-const articleResponse = await http.post(
-    `${BACKEND_URL}/api/save-articles`,
-    predictorResponse.data,
-    {
-        timeout: HTTP_TIMEOUT,
-    }
-);
-
-console.log(
-    'Article storage response:',
-    articleResponse.data
-);
+    console.log(
+        `Sending predictor output to backend: ${BACKEND_URL}/api/save-momentum`
+    );
 
 
-// =====================================================
-// SAVE AGGREGATE MOMENTUM
-// =====================================================
+    const backendResponse =
+        await http.post(
 
-console.log(
-    `Sending momentum to backend: ${BACKEND_URL}/api/save-momentum`
-);
+            `${BACKEND_URL}/api/save-momentum`,
 
-const backendResponse = await http.post(
-    `${BACKEND_URL}/api/save-momentum`,
-    predictorResponse.data,
-    {
-        timeout: HTTP_TIMEOUT,
-    }
-);
+            predictorResponse.data,
 
-console.log(
-    'Momentum storage response:',
-    backendResponse.data
-);
+            {
+                timeout:
+                    HTTP_TIMEOUT
+            }
 
-console.log(
-    'Pipeline completed successfully.'
-);
+        );
 
 
-    console.log('Backend response:', backendResponse.data);
-    console.log('Pipeline completed successfully.');
+    console.log(
+        'Backend response:',
+        backendResponse.data
+    );
+
+    console.log(
+        'Pipeline completed successfully.'
+    );
+
 }
 
+
 getGoldNews().catch(error => {
-    console.error('\nNews pipeline failed:');
-    console.error(error.response?.data || error.message);
+
+    console.error(
+        '\nNews pipeline failed:'
+    );
+
+    console.error(
+        error.response?.data ||
+        error.message
+    );
+
     process.exitCode = 1;
+
 });
