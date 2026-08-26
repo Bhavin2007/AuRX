@@ -417,17 +417,49 @@ async function getGoldNews() {
     }
 
 
-    console.log(
+        console.log(
         'Momentum scores received.'
     );
 
 
+    // =====================================================
+    // SAVE ARTICLE-LEVEL RESULTS
+    // =====================================================
+
     console.log(
-        `Sending predictor output to backend: ${BACKEND_URL}/api/save-momentum`
+        `Sending article results to backend: ${BACKEND_URL}/api/save-articles`
+    );
+
+    const articleSaveResponse =
+        await http.post(
+
+            `${BACKEND_URL}/api/save-articles`,
+
+            predictorResponse.data,
+
+            {
+                timeout:
+                    HTTP_TIMEOUT
+            }
+
+        );
+
+
+    console.log(
+        'Article save response:',
+        articleSaveResponse.data
     );
 
 
-    const backendResponse =
+    // =====================================================
+    // SAVE MOMENTUM SNAPSHOT
+    // =====================================================
+
+    console.log(
+        `Sending momentum results to backend: ${BACKEND_URL}/api/save-momentum`
+    );
+
+    const momentumSaveResponse =
         await http.post(
 
             `${BACKEND_URL}/api/save-momentum`,
@@ -443,9 +475,10 @@ async function getGoldNews() {
 
 
     console.log(
-        'Backend response:',
-        backendResponse.data
+        'Momentum save response:',
+        momentumSaveResponse.data
     );
+
 
     console.log(
         'Pipeline completed successfully.'
