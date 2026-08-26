@@ -129,15 +129,22 @@ async function getGoldNews() {
             const hasFullText = Boolean(fullText && fullText.length > 100);
 
             return {
+                title: article.title,
+                description: article.description,
+
                 text: (hasFullText
                     ? fullText
                     : (article.content || article.description || article.title)
                 ).trim(),
+
                 source_name: article.source,
                 source_url: article.url,
                 source_type: determineSourceTier(article.source),
+
                 timestamp: article.publishedAt,
+
                 ticker: TICKER,
+
                 relevance_score: article.relevanceScore,
                 is_full_text: hasFullText,
             };
@@ -150,7 +157,20 @@ async function getGoldNews() {
         console.log('Relevant articles contained no usable text/URLs. Nothing to send.');
         return;
     }
+    // this is added temporarily to see the news articles being sent for analysis to predictor
+    console.log('\n========== ARTICLES SENT TO PREDICTOR ==========');
 
+    validItems.forEach((item, index) => {
+    console.log(`\n[${index + 1}] ${item.source_name}`);
+    console.log(`Published: ${item.published_at}`);
+    console.log(`URL: ${item.source_url}`);
+    console.log(`Relevance: ${item.relevance_score}`);
+    console.log(`Full text: ${item.is_full_text}`);
+    console.log(`Text preview: ${item.text.substring(0, 300)}...`);
+});
+
+console.log('\n=================================================\n');
+//
     console.log(`Sending ${validItems.length} items to predictor: ${PREDICTOR_URL}/api/analyze`);
 
     const predictorResponse = await http.post(
@@ -163,14 +183,56 @@ async function getGoldNews() {
         throw new Error('Predictor returned an unsuccessful response.');
     }
 
-    console.log('Momentum scores received.');
-    console.log(`Sending predictor output to backend: ${BACKEND_URL}/api/save-momentum`);
+    console.log('Predictor analysis received.');
 
-    const backendResponse = await http.post(
-        `${BACKEND_URL}/api/save-momentum`,
-        predictorResponse.data,
-        { timeout: HTTP_TIMEOUT }
-    );
+
+// =====================================================
+// SAVE ARTICLE-LEVEL ANALYSIS
+// =====================================================
+
+console.log(
+    `Saving articles to backend: ${BACKEND_URL}/api/save-articles`
+);
+
+const articleResponse = await http.post(
+    `${BACKEND_URL}/api/save-articles`,
+    predictorResponse.data,
+    {
+        timeout: HTTP_TIMEOUT,
+    }
+);
+
+console.log(
+    'Article storage response:',
+    articleResponse.data
+);
+
+
+// =====================================================
+// SAVE AGGREGATE MOMENTUM
+// =====================================================
+
+console.log(
+    `Sending momentum to backend: ${BACKEND_URL}/api/save-momentum`
+);
+
+const backendResponse = await http.post(
+    `${BACKEND_URL}/api/save-momentum`,
+    predictorResponse.data,
+    {
+        timeout: HTTP_TIMEOUT,
+    }
+);
+
+console.log(
+    'Momentum storage response:',
+    backendResponse.data
+);
+
+console.log(
+    'Pipeline completed successfully.'
+);
+
 
     console.log('Backend response:', backendResponse.data);
     console.log('Pipeline completed successfully.');

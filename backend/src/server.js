@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
+const articleRoutes = require('./routes/articleRoutes');
 
 const analyzeRoutes = require('./routes/analyzeRoutes');
 const momentumRoutes = require('./routes/momentumRoutes');
@@ -30,6 +31,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api', analyzeRoutes);
 app.use('/api', momentumRoutes);
+app.use('/api', articleRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

@@ -16,6 +16,8 @@ class SourceType(str, Enum):
 
 
 class RawItem(BaseModel):
+    title: str = Field(min_length=1)
+    description: Optional[str] = None
     text: str = Field(min_length=1)
     source_name: str = Field(min_length=1)
     source_url: str = Field(min_length=1)

@@ -1,121 +1,67 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useRecoilValue } from 'recoil'
+
+import { symbolState } from './state/atoms'
+
+import { useBinanceTicker } from './hooks/useBinanceTicker'
+import { useBinanceKlines } from './hooks/useBinanceKlines'
+import { useMomentum } from './hooks/useMomentum'
+
+import PriceCard from './components/PriceCard'
+import PriceChart from './components/PriceChart'
+import NewsSentiment from './components/NewsSentiment'
+import TechnicalIndicators from './components/TechnicalIndicators'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const symbol = useRecoilValue(symbolState)
+
+  useBinanceTicker(symbol)
+  useBinanceKlines(symbol)
+  useMomentum('GOLD')
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <main className="min-h-screen bg-[#080808] text-white">
 
-      <div className="ticks"></div>
+      <header className="border-b border-white/10">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-7 md:px-8">
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          <div>
+            <div className="text-4xl font-black tracking-tight text-yellow-400">
+              AuRX
+            </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+            <div className="mt-1 text-white/60">
+              AI Gold Sentiment Intelligence
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-emerald-400">
+            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" />
+            LIVE XAUUSDT
+          </div>
+
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-8">
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <PriceCard />
+          <NewsSentiment />
+        </section>
+
+        <PriceChart />
+
+        <TechnicalIndicators />
+
+        {/* Article-level news section will go here */}
+
+        {/* Confidence meter will go here */}
+
+        {/* Trading signal will go here */}
+
+      </div>
+
+    </main>
   )
 }
 
