@@ -326,38 +326,43 @@ async function getGoldNews() {
      */
 
     const rawItems =
-        filteredArticles.map(
-            article => ({
+    filteredArticles.map(
+        article => ({
 
-                text:
-                    article.content,
+            title:
+                article.title,
 
-                source_name:
-                    article.source,
+            description:
+                article.description || '',
 
-                source_url:
-                    article.url,
+            text:
+                article.content,
 
-                source_type:
-                    determineSourceTier(
-                        article.source
-                    ),
+            source_name:
+                article.source,
 
-                timestamp:
-                    article.publishedAt,
+            source_url:
+                article.url,
 
-                ticker:
-                    TICKER,
+            source_type:
+                determineSourceTier(
+                    article.source
+                ),
 
-                relevance_score:
-                    article.relevanceScore,
+            timestamp:
+                article.publishedAt,
 
-                is_full_text:
-                    article.hasFullText,
+            ticker:
+                TICKER,
 
-            })
-        );
+            relevance_score:
+                article.relevanceScore,
 
+            is_full_text:
+                article.hasFullText,
+
+        })
+    );
 
     const validItems =
         rawItems.filter(
