@@ -12,236 +12,175 @@ class FinBertHFApiClient:
     )
 
 
-    def __init__(
-        self,
-        api_token: str = None
-    ):
+    def __init__(self, api_token: str = None):
 
         self.api_token = (
-            api_token or
-            os.environ.get(
-                "HF_API_TOKEN"
-            )
+            api_token
+            or os.environ.get('HF_API_TOKEN')
         )
 
 
         if not self.api_token:
 
             raise RuntimeError(
-                "HF_API_TOKEN is not set. "
-                "Add it to predictor/.env."
+                'HF_API_TOKEN is not set. '
+                'Add it to predictor/.env.'
             )
 
 
         self.headers = {
 
-            "Authorization":
-                f"Bearer {self.api_token}",
+            'Authorization':
+                f'Bearer {self.api_token}',
 
-            "Content-Type":
-                "application/json",
+            'Content-Type':
+                'application/json',
 
         }
 
 
-    def _score_chunk(
-        self,
-        text: str
-    ):
+    def _score_chunk(self, text: str):
 
         payload = {
-            "inputs": text
+            'inputs': text
         }
 
 
-        try:
+        response = requests.post(
 
-            response = requests.post(
+            self.API_URL,
 
-                self.API_URL,
+            headers=self.headers,
 
-                headers=self.headers,
+            json=payload,
 
-                json=payload,
+            timeout=(10, 90),
 
-                timeout=(10, 120),
-
-            )
-
-
-            if not response.ok:
-
-                raise RuntimeError(
-
-                    f"FinBERT HTTP "
-                    f"{response.status_code}: "
-                    f"{response.text[:1000]}"
-
-                )
-
-
-            data = response.json()
-
-
-            if (
-
-                isinstance(data, list)
-
-                and len(data) == 1
-
-                and isinstance(data[0], list)
-
-            ):
-
-                results = data[0]
-
-
-            elif isinstance(data, list):
-
-                results = data
-
-
-            else:
-
-                raise RuntimeError(
-
-                    f"Unexpected FinBERT response: "
-                    f"{data}"
-
-                )
-
-
-            scores = {}
-
-
-            for item in results:
-
-                if not isinstance(
-                    item,
-                    dict
-                ):
-                    continue
-
-
-                label = str(
-                    item.get(
-                        "label",
-                        ""
-                    )
-                ).lower()
-
-
-                score = float(
-                    item.get(
-                        "score",
-                        0.0
-                    )
-                )
-
-
-                if label:
-
-                    scores[label] = score
-
-
-            if not scores:
-
-                raise RuntimeError(
-
-                    "No sentiment scores returned "
-                    f"by FinBERT: {data}"
-
-                )
-
-
-            return (
-
-                scores.get(
-                    "positive",
-                    0.0
-                ),
-
-                scores.get(
-                    "negative",
-                    0.0
-                ),
-
-                scores.get(
-                    "neutral",
-                    0.0
-                ),
-
-            )
-
-
-        except requests.RequestException as exc:
-
-            raise RuntimeError(
-
-                f"FinBERT network request failed: "
-                f"{exc}"
-
-            ) from exc
-
-
-    def score(
-        self,
-        text: str
-    ):
-
-        if (
-            not text or
-            not text.strip()
-        ):
-
-            raise ValueError(
-                "Cannot run FinBERT on empty text."
-            )
-
-
-        # Normalize whitespace.
-
-        text = " ".join(
-            text.split()
         )
 
 
-        # Keep each request small enough
-        # for the inference API.
+        if not response.ok:
 
-        chunk_size = 1500
+            raise RuntimeError(
+
+                f'FinBERT HTTP '
+                f'{response.status_code}: '
+                f'{response.text[:1000]}'
+
+            )
+
+
+        data = response.json()
+
+
+        if (
+            isinstance(data, list)
+            and len(data) == 1
+            and isinstance(data[0], list)
+        ):
+
+            results = data[0]
+
+        elif isinstance(data, list):
+
+            results = data
+
+        else:
+
+            raise RuntimeError(
+                f'Unexpected FinBERT response: {data}'
+            )
+
+
+        scores = {}
+
+
+        for item in results:
+
+            if not isinstance(item, dict):
+                continue
+
+
+            label = str(
+                item.get('label', '')
+            ).lower()
+
+
+            score = float(
+                item.get('score', 0.0)
+            )
+
+
+            if label:
+                scores[label] = score
+
+
+        if not scores:
+
+            raise RuntimeError(
+                f'No sentiment scores returned: {data}'
+            )
+
+
+        return (
+
+            scores.get('positive', 0.0),
+
+            scores.get('negative', 0.0),
+
+            scores.get('neutral', 0.0),
+
+        )
+
+
+    def score(self, text: str):
+
+        if not text or not text.strip():
+
+            raise ValueError(
+                'Cannot run FinBERT on empty text.'
+            )
+
+
+        text = ' '.join(text.split())
+
+
+        # ------------------------------------------------
+        # Keep the analysis focused.
+        #
+        # Extremely long articles create many API calls
+        # without necessarily improving the result.
+        # ------------------------------------------------
+
+        MAX_CHARS = 4200
+        CHUNK_SIZE = 1400
+        MAX_CHUNKS = 3
+
+
+        text = text[:MAX_CHARS]
 
 
         chunks = [
 
-            text[i:i + chunk_size]
+            text[i:i + CHUNK_SIZE]
 
             for i in range(
                 0,
                 len(text),
-                chunk_size
+                CHUNK_SIZE
             )
 
-        ]
-
-
-        # Prevent extremely long articles
-        # from creating excessive API calls.
-
-        chunks = chunks[:8]
+        ][:MAX_CHUNKS]
 
 
         positive_scores = []
-
         negative_scores = []
-
         neutral_scores = []
 
 
         for chunk in chunks:
 
             if not chunk.strip():
-
                 continue
 
 
@@ -266,32 +205,27 @@ class FinBertHFApiClient:
         if not positive_scores:
 
             raise RuntimeError(
-                "FinBERT returned no usable scores."
+                'FinBERT returned no usable scores.'
             )
 
 
-        # Average sentiment across
-        # all analyzed chunks.
-
         positive = (
-            sum(positive_scores) /
-            len(positive_scores)
+            sum(positive_scores)
+            / len(positive_scores)
         )
 
 
         negative = (
-            sum(negative_scores) /
-            len(negative_scores)
+            sum(negative_scores)
+            / len(negative_scores)
         )
 
 
         neutral = (
-            sum(neutral_scores) /
-            len(neutral_scores)
+            sum(neutral_scores)
+            / len(neutral_scores)
         )
 
-
-        # Normalize the probabilities.
 
         total = (
             positive +
@@ -302,35 +236,25 @@ class FinBertHFApiClient:
 
         if total > 0:
 
-            positive = (
-                positive / total
-            )
+            positive /= total
+            negative /= total
+            neutral /= total
 
-            negative = (
-                negative / total
-            )
 
-            neutral = (
-                neutral / total
-            )
+        scores = {
+
+            'positive': positive,
+
+            'negative': negative,
+
+            'neutral': neutral,
+
+        }
 
 
         label = max(
-
-            {
-                "positive": positive,
-                "negative": negative,
-                "neutral": neutral,
-            },
-
-            key={
-
-                "positive": positive,
-                "negative": negative,
-                "neutral": neutral,
-
-            }.get
-
+            scores,
+            key=scores.get
         )
 
 
