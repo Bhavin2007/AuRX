@@ -256,6 +256,14 @@ async function getGoldNews() {
 
         );
 
+        const fullTextCount =
+    extractedArticles.filter(
+        article => article.hasFullText
+    ).length
+
+    console.log(
+        `Full article text extracted for ${fullTextCount}/${extractedArticles.length} articles.`
+    )
 
     /*
      * Calculate relevance using
