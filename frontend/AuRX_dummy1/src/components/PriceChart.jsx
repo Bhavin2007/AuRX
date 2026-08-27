@@ -4,7 +4,7 @@ import { useRecoilValue } from 'recoil'
 import { marketState } from '../state/marketState'
 import { timeframeState } from '../state/atoms'
 
-import TimeframeSelector from './TimeframeSelector'
+import TimeframeSelector from './TimeFrameSelector'
 
 export default function PriceChart() {
   const { chartData, loading } =
