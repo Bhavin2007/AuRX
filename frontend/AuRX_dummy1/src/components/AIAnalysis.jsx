@@ -92,11 +92,25 @@ export default function AIAnalysis() {
         />
 
         <Metric
-          title="EMA Momentum"
-          value={emaMomentum.toFixed(4)}
-          description="Smoothed momentum signal"
-          positive={emaMomentum > 0}
-          negative={emaMomentum < 0}
+        title="EMA Momentum"
+        value={
+            articles < 2
+            ? 'Warming up'
+            : emaMomentum.toFixed(4)
+        }
+        description={
+            articles < 2
+            ? 'Needs another analysis cycle'
+            : 'Smoothed momentum signal'
+        }
+        positive={
+            articles >= 2 &&
+            emaMomentum > 0
+        }
+        negative={
+            articles >= 2 &&
+            emaMomentum < 0
+        }
         />
 
         <Metric

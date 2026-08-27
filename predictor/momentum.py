@@ -8,17 +8,11 @@ from models import ScoredItem
 
 
 class MomentumReading(BaseModel):
-
     ticker: str
-
     timestamp: datetime
-
     weighted_sentiment: float
-
     momentum: float
-
     item_count: int
-
     total_credibility_weight: float
 
 
@@ -28,7 +22,6 @@ class MomentumTracker:
         self,
         window_hours: int = 6
     ):
-
         self.window = timedelta(
             hours=window_hours
         )
@@ -37,7 +30,6 @@ class MomentumTracker:
             str,
             List[MomentumReading]
         ] = defaultdict(list)
-
 
     def _prune(
         self,
@@ -51,16 +43,10 @@ class MomentumTracker:
         )
 
         self._history[ticker] = [
-
             reading
-
-            for reading
-            in self._history[ticker]
-
+            for reading in self._history[ticker]
             if reading.timestamp >= cutoff
-
         ]
-
 
     @staticmethod
     def recency_weight(
@@ -77,7 +63,6 @@ class MomentumTracker:
             / 3600
         )
 
-
         # Exponential decay.
         #
         # At half-life:
@@ -88,7 +73,6 @@ class MomentumTracker:
             half_life_hours
         )
 
-
         # Never completely discard
         # a reasonably recent article.
 
@@ -96,7 +80,6 @@ class MomentumTracker:
             weight,
             0.10
         )
-
 
     @classmethod
     def weighted_sentiment(
@@ -106,9 +89,7 @@ class MomentumTracker:
     ) -> float:
 
         numerator = 0.0
-
         denominator = 0.0
-
 
         for item in items:
 
@@ -117,37 +98,30 @@ class MomentumTracker:
                 0.01
             )
 
-
             recency = cls.recency_weight(
                 item.raw.timestamp,
                 now
             )
-
 
             weight = (
                 credibility *
                 recency
             )
 
-
             numerator += (
                 item.sentiment.signed_score *
                 weight
             )
 
-
             denominator += weight
-
 
         if denominator <= 0:
             return 0.0
-
 
         return (
             numerator /
             denominator
         )
-
 
     def update(
         self,
@@ -161,41 +135,62 @@ class MomentumTracker:
             or datetime.now(timezone.utc)
         )
 
-
+        # Remove readings outside
+        # the configured history window.
         self._prune(
             ticker,
             as_of
         )
 
-
+        # Calculate the current weighted
+        # sentiment from the incoming articles.
         current_ws = self.weighted_sentiment(
             items,
             as_of
         )
 
-
+        # Calculate the total credibility
+        # weight of the current article batch.
         total_weight = sum(
-            max(item.credibility, 0.01)
+            max(
+                item.credibility,
+                0.01
+            )
             for item in items
         )
 
+        # -------------------------------------------------
+        # MOMENTUM
+        # -------------------------------------------------
+        #
+        # Momentum measures the change in weighted
+        # sentiment compared with the previous reading.
+        #
+        # First reading:
+        # There is no previous reading, so momentum = 0.
+        #
 
-        prior_readings = (
-            self._history[ticker]
-        )
+        prior_readings = self._history[ticker]
 
+        if prior_readings:
 
-        prior_ws = (
+            prior_ws = (
+                prior_readings[-1]
+                .weighted_sentiment
+            )
 
-            prior_readings[-1].weighted_sentiment
+            momentum = (
+                current_ws -
+                prior_ws
+            )
 
-            if prior_readings
+        else:
 
-            else 0.0
+            # No previous reading means that
+            # momentum cannot yet be calculated.
+            momentum = 0.0
 
-        )
-
-
+        # Create the new reading.
         reading = MomentumReading(
 
             ticker=ticker,
@@ -208,7 +203,7 @@ class MomentumTracker:
             ),
 
             momentum=round(
-                current_ws - prior_ws,
+                momentum,
                 4
             ),
 
@@ -218,17 +213,15 @@ class MomentumTracker:
                 total_weight,
                 4
             ),
-
         )
 
-
+        # Store the reading so that the next
+        # analysis can calculate momentum.
         self._history[ticker].append(
             reading
         )
 
-
         return reading
-
 
     def ema_momentum(
         self,
@@ -236,50 +229,40 @@ class MomentumTracker:
         span: int = 5
     ) -> float:
 
-        readings = (
-            self._history.get(
-                ticker,
-                []
-            )
+        readings = self._history.get(
+            ticker,
+            []
         )
 
-
+        # Need at least two readings before
+        # EMA momentum becomes meaningful.
         if len(readings) < 2:
             return 0.0
 
+        # Extract the actual momentum values.
+        momentum_values = [
+            reading.momentum
+            for reading in readings
+        ]
 
+        # Standard EMA smoothing factor.
         alpha = 2 / (
             span + 1
         )
 
+        # Start EMA from the first momentum value.
+        ema = momentum_values[0]
 
-        ema = (
-            readings[0]
-            .weighted_sentiment
-        )
-
-
-        for reading in readings[1:]:
+        # Apply EMA recursively.
+        for value in momentum_values[1:]:
 
             ema = (
-
-                alpha *
-                reading.weighted_sentiment
-
+                alpha * value
                 +
-
-                (1 - alpha) *
-                ema
-
+                (1 - alpha) * ema
             )
 
-
         return round(
-
-            readings[-1]
-            .weighted_sentiment
-            - ema,
-
+            ema,
             4
-
         )
