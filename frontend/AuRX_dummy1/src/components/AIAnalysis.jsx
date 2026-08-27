@@ -26,26 +26,12 @@ export default function AIAnalysis() {
         ?.totalCredibility ?? 0
     )
 
-  const momentum =
-    Number(
-      sentiment.momentum?.value ?? 0
-    )
-
-  const emaMomentum =
-    Number(
-      sentiment.emaMomentum ?? 0
-    )
-
   const articles =
     sentiment.currentWindow
       ?.articleCount ?? 0
 
   const bias =
     sentiment.bias || 'NEUTRAL'
-
-  const direction =
-    sentiment.momentum?.direction ||
-    'FLAT'
 
   return (
     <section>
@@ -84,41 +70,17 @@ export default function AIAnalysis() {
         />
 
         <Metric
-          title="Momentum"
-          value={momentum.toFixed(4)}
-          description="Change in sentiment"
-          positive={momentum > 0}
-          negative={momentum < 0}
-        />
-
-        <Metric
-        title="EMA Momentum"
-        value={
-            articles < 2
-            ? 'Warming up'
-            : emaMomentum.toFixed(4)
-        }
-        description={
-            articles < 2
-            ? 'Needs another analysis cycle'
-            : 'Smoothed momentum signal'
-        }
-        positive={
-            articles >= 2 &&
-            emaMomentum > 0
-        }
-        negative={
-            articles >= 2 &&
-            emaMomentum < 0
-        }
-        />
-
-        <Metric
-          title="Market Direction"
-          value={direction}
+          title="Market Bias"
+          value={bias}
           description={`${articles} articles analyzed`}
-          positive={direction === 'IMPROVING'}
-          negative={direction === 'DETERIORATING'}
+          positive={
+            bias === 'BULLISH' ||
+            bias === 'POSITIVE'
+          }
+          negative={
+            bias === 'BEARISH' ||
+            bias === 'NEGATIVE'
+          }
         />
 
       </div>
